@@ -20,7 +20,7 @@ jobs:
             docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
             docker push ${{ secrets.DOCKER_REPO_URL }}/node-repo:v1.0
       - name: SSH into EC2 instance and deploy
-        uses: pravin1710/ssh-action@master
+        uses: pravin1710/deploy_node_code@master
         with:
           host: ${{ secrets.EC2_HOST }} #public ip address
           username: ${{ secrets.EC2_USERNAME }}
