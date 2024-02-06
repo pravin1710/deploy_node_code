@@ -1,34 +1,48 @@
 name: Deploy to EC2
 on:
+  push:
+    branches: [ master ]
   workflow_dispatch:
-    branches:
-        - main
+permissions:
+  id-token: write
+  contents: write
+  
 jobs:
   deploy:
     runs-on: ubuntu-latest 
+    strategy:
+        matrix:
+          node-version: [18.x]
+  
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
       - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '16'
-      - name: Build and push Docker image
-        run: |
-            docker build -t node-repo .
-            docker tag node-repo:v1.0 ${{ secrets.DOCKER_REPO_URL }}/node-repo:v1.0
-            docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-            docker push ${{ secrets.DOCKER_REPO_URL }}/node-repo:v1.0
+        uses: actions/checkout@v2
+  
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test
+
       - name: SSH into EC2 instance and deploy
         uses: pravin1710/deploy_node_code@master
         with:
           host: ${{ secrets.EC2_HOST }} #public ip address
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.MY_EC2_SSH_KEY }}
-          script: |
-            sudo docker pull ${{ secrets.DOCKER_REPO_URL }}/node-repo:v1.0
-            sudo docker stop my-node || true
-            sudo docker rm my-node || true
-            sudo docker run -d -p 3000:3000 --name my-node ${{ secrets.DOCKER_REPO_URL }}/node-repo:v1.0
-      
-    
+
+      - name: Install Docker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker.io
+
+      - name: Build Docker Image
+        run: |
+          sudo docker build -t my-image .
+
+      - name: Stop and Remove Existing Docker Container
+        run: |
+          sudo docker stop my-node || true
+          sudo docker rm my-node || true
+
+      - name: Run Docker Container
+        run: |
+          sudo docker run -d -p 3000:3000 --name my-node my-image
